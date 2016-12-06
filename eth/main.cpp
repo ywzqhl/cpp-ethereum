@@ -383,9 +383,8 @@ int main(int argc, char** argv)
 
 	/// Mining params
 	unsigned mining = 0;
-	Address signingKey;
 	Address sessionKey;
-	Address author = signingKey;
+	Address author;
 	strings presaleImports;
 	bytes extraData;
 
@@ -415,7 +414,6 @@ int main(int argc, char** argv)
 		try
 		{
 			RLP config(b);
-			signingKey = config[0].toHash<Address>();
 			author = config[1].toHash<Address>();
 		}
 		catch (...) {}
@@ -573,7 +571,6 @@ int main(int argc, char** argv)
 		{
 			Secret s(fromHex(argv[++i]));
 			toImport.emplace_back(s);
-			signingKey = toAddress(s);
 		}
 		else if ((arg == "-S" || arg == "--import-session-secret") && i + 1 < argc)
 		{
@@ -962,10 +959,7 @@ int main(int argc, char** argv)
 	for (auto const& s: passwordsToNote)
 		keyManager.notePassword(s);
 
-	writeFile(configFile, rlpList(signingKey, author));
-
-	if (sessionKey)
-		signingKey = sessionKey;
+	writeFile(configFile, rlpList(author, author));
 
 	if (!clientName.empty())
 		clientName += "/";
@@ -1172,18 +1166,6 @@ int main(int argc, char** argv)
 	for (auto const& s: toImport)
 	{
 		keyManager.import(s, "Imported key (UNSAFE)");
-		if (!signingKey)
-			signingKey = toAddress(s);
-	}
-
-	if (keyManager.accounts().empty())
-	{
-		h128 uuid = keyManager.import(ICAP::createDirect(), "Default key");
-		if (!author)
-			author = keyManager.address(uuid);
-		if (!signingKey)
-			signingKey = keyManager.address(uuid);
-		writeFile(configFile, rlpList(signingKey, author));
 	}
 
 	cout << ethCredits();
@@ -1207,9 +1189,8 @@ int main(int argc, char** argv)
 		return ICAP(_a).encoded() + " (" + toUUID(keyManager.uuid(_a)) + " - " + toHex(_a.ref().cropped(0, 4)) + ")";
 	};
 
-	cout << "Transaction Signer: " << renderFullAddress(signingKey) << endl;
-	cout << "Mining Beneficiary: " << renderFullAddress(author) << endl;
-	cout << "Foundation: " << renderFullAddress(Address("de0b295669a9fd93d5f28d9ec85e40f4cb697bae")) << endl;
+	if (author)
+		cout << "Mining Beneficiary: " << renderFullAddress(author) << endl;
 
 	if (bootstrap || !remoteHost.empty() || enableDiscovery)
 	{
